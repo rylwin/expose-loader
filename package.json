@@ -1,6 +1,6 @@
 {
   "name": "expose-loader",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "author": "Tobias Koppers @sokra",
   "description": "expose loader module for webpack",
   "license": "MIT",
