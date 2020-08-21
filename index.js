@@ -3,51 +3,83 @@
 	Author Tobias Koppers @sokra
 */
 
-var path = require('path');
-const exposeLoaderPathRegex = new RegExp(`^(.*)${path.sep}expose-loader${path.sep}index.js`);
+var path = require("path")
+const exposeLoaderPathRegex = new RegExp(
+  `^(.*)${path.sep}expose-loader${path.sep}index.js`
+)
+const babelLoaderPathRegex = new RegExp(
+  `^(.*)${path.sep}babel-loader${path.sep}lib${path.sep}index.js`
+)
+const nestedBabelLoaderPathRegex = new RegExp(
+  `!(.*${path.sep}babel-loader${path.sep}lib${path.sep}index.js)`
+)
 
 function accesorString(value) {
-	var childProperties = value.split(".");
-	var length = childProperties.length;
-	var propertyString = "global";
-	var result = "";
+  var childProperties = value.split(".")
+  var length = childProperties.length
+  var propertyString = "global"
+  var result = ""
 
-	for(var i = 0; i < length; i++) {
-		if(i > 0)
-			result += "if(!" + propertyString + ") " + propertyString + " = {};\n";
-		propertyString += "[" + JSON.stringify(childProperties[i]) + "]";
-	}
+  for (var i = 0; i < length; i++) {
+    if (i > 0)
+      result += "if(!" + propertyString + ") " + propertyString + " = {};\n"
+    propertyString += "[" + JSON.stringify(childProperties[i]) + "]"
+  }
 
-	result += "module.exports = " + propertyString;
-	return result;
+  result += "module.exports = " + propertyString
+  return result
 }
 
-module.exports = function() {};
+module.exports = function() {}
 module.exports.pitch = function(remainingRequest) {
-	// Change the request from an /abolute/path.js to a relative ./path.js
-	// This prevents [chunkhash] values from changing when running webpack
-	// builds in different directories.
-  let newRequestPath = remainingRequest
-    .replace(this.resourcePath, `.${path.sep}${path.relative(this.context, this.resourcePath)}`);
-  let exposeLoaderMatch = remainingRequest.match(exposeLoaderPathRegex);
+  // Change the request from an /abolute/path.js to a relative ./path.js
+  // This prevents [chunkhash] values from changing when running webpack
+  // builds in different directories.
+  let newRequestPath = remainingRequest.replace(
+    this.resourcePath,
+    `.${path.sep}${path.relative(this.context, this.resourcePath)}`
+  )
+  let exposeLoaderMatch = remainingRequest.match(exposeLoaderPathRegex)
   if (exposeLoaderMatch) {
-    let exposeLoaderPath = exposeLoaderMatch[0];
-    newRequestPath = newRequestPath
-      .replace(
-        exposeLoaderPath,
-        `.${path.sep}${path.relative(this.context, exposeLoaderPath)}`
-      );
+    let exposeLoaderPath = exposeLoaderMatch[0]
+    newRequestPath = newRequestPath.replace(
+      exposeLoaderPath,
+      `.${path.sep}${path.relative(this.context, exposeLoaderPath)}`
+    )
   }
-	this.cacheable && this.cacheable();
-	if(!this.query) throw new Error("query parameter is missing");
-    /*
-     * Workaround until module.libIdent() in webpack/webpack handles this correctly.
-     *
-     * fixes:
-     * - https://github.com/webpack-contrib/expose-loader/issues/55
-     * - https://github.com/webpack-contrib/expose-loader/issues/49
-     */
-	this._module.userRequest = this._module.userRequest + '-exposed';
-	return accesorString(this.query.substr(1)) + " = " +
-		"require(" + JSON.stringify("-!" + newRequestPath) + ");";
-};
+  let nestedBabelLoaderMatch = remainingRequest.match(
+    nestedBabelLoaderPathRegex
+  )
+  if (nestedBabelLoaderMatch) {
+    let nestedBabelLoaderPath = nestedBabelLoaderMatch[1]
+    newRequestPath = newRequestPath.replace(
+      nestedBabelLoaderPath,
+      `.${path.sep}${path.relative(this.context, nestedBabelLoaderPath)}`
+    )
+  }
+  let babelLoaderMatch = remainingRequest.match(babelLoaderPathRegex)
+  if (babelLoaderMatch) {
+    let babelLoaderPath = babelLoaderMatch[0]
+    newRequestPath = newRequestPath.replace(
+      babelLoaderPath,
+      `.${path.sep}${path.relative(this.context, babelLoaderPath)}`
+    )
+  }
+  this.cacheable && this.cacheable()
+  if (!this.query) throw new Error("query parameter is missing")
+  /*
+   * Workaround until module.libIdent() in webpack/webpack handles this correctly.
+   *
+   * fixes:
+   * - https://github.com/webpack-contrib/expose-loader/issues/55
+   * - https://github.com/webpack-contrib/expose-loader/issues/49
+   */
+  this._module.userRequest = this._module.userRequest + "-exposed"
+  return (
+    accesorString(this.query.substr(1)) +
+    " = " +
+    "require(" +
+    JSON.stringify("-!" + newRequestPath) +
+    ");"
+  )
+}
